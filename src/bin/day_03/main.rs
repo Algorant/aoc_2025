@@ -33,25 +33,68 @@ fn largest_two_digit(line: &str) -> (u32, u32, u32) {
     (first_digit, second_digit, first_digit * 10 + second_digit)
 }
 
+// Part 2, find 12 digit number
+fn largest_n_digit(line: &str, n: usize) -> (Vec<u32>, u64) {
+    let digits: Vec<u32> = line.chars().filter_map(|c| c.to_digit(10)).collect();
+
+    let len = digits.len();
+    let mut result_digits: Vec<u32> = Vec::with_capacity(n);
+    let mut start_pos = 0;
+
+    for i in 0..n {
+        let digits_still_needed = n - i - 1; // How many more after this one
+        let end_pos = len - digits_still_needed; // Can't go past this
+
+        // Find largest digit in range (start_pos, end_pos)
+        let mut best_digit = 0;
+        let mut best_pos = start_pos;
+
+        for pos in start_pos..end_pos {
+            if digits[pos] > best_digit {
+                best_digit = digits[pos];
+                best_pos = pos;
+            }
+        }
+
+        result_digits.push(best_digit);
+        start_pos = best_pos + 1; // Do next search
+    }
+
+    // Convert to number
+    let result: u64 = result_digits
+        .iter()
+        .fold(0u64, |acc, &d| acc * 10 + d as u64);
+
+    (result_digits, result)
+}
+
 fn main() {
     let input = read_input();
-    let mut total: u32 = 0;
+    let mut total_p1: u32 = 0;
+    let mut total_p2: u64 = 0;
 
     for (i, line) in input.lines().enumerate() {
-        let (first, second, result) = largest_two_digit(line);
-        total += result;
+        // Part 1
+        let (first, second, result1) = largest_two_digit(line);
+        total_p1 += result1;
+
+        // Part 2: 12 digits
+        let (digits, result2) = largest_n_digit(line, 12);
+        total_p2 += result2;
 
         // Show line number, first x chars, and running total
         let preview: String = line.chars().take(20).collect();
         println!(
-            "Line {}: {}... -> {} then {} = {} (total: {})",
+            "Line {}: {}... -> P1: {}{} = {} | P2: {:?} = {}",
             i + 1,
             preview,
             first,
             second,
-            result,
-            total
+            result1,
+            digits,
+            result2
         );
     }
-    println!("\nPart 1: {}", total);
+    println!("\nPart 1: {}", total_p1);
+    println!("Part 2: {}", total_p2);
 }
