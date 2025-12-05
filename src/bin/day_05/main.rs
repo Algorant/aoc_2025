@@ -45,6 +45,51 @@ fn parse_input(input: &str) -> (Vec<Range>, Vec<u64>) {
     (ranges, values)
 }
 
+// Part 2 logic
+fn merge_ranges(ranges: &[Range]) -> Vec<Range> {
+    if ranges.is_empty() {
+        return vec![];
+    }
+
+    // Sort by start value
+    let mut sorted: Vec<Range> = ranges
+        .iter()
+        .map(|r| Range {
+            start: r.start,
+            end: r.end,
+        })
+        .collect();
+    sorted.sort_by_key(|r| r.start);
+
+    let mut merged: Vec<Range> = vec![];
+    let mut current = Range {
+        start: sorted[0].start,
+        end: sorted[0].end,
+    };
+
+    for range in sorted.iter().skip(1) {
+        if range.start <= current.end {
+            // Overlapping or adjacent - Extend
+            current.end = current.end.max(range.end);
+        } else {
+            // GAp - push current and start new
+            merged.push(current);
+            current = Range {
+                start: range.start,
+                end: range.end,
+            };
+        }
+    }
+
+    merged.push(current);
+
+    merged
+}
+
+fn count_integers(ranges: &[Range]) -> u64 {
+    ranges.iter().map(|r| r.end - r.start + 1).sum()
+}
+
 fn is_valid(value: u64, ranges: &[Range]) -> bool {
     ranges.iter().any(|r| r.contains(value))
 }
@@ -59,4 +104,12 @@ fn main() {
 
     println!("Part 1 \n");
     println!("Valid values: {}", valid_counts);
+
+    // Part 2
+    let merged = merge_ranges(&ranges);
+    let total_integers = count_integers(&merged);
+
+    println!("\nPart 2\n");
+    println!("merged into {} ranges", merged.len());
+    println!("Total valid products: {}", total_integers);
 }
