@@ -101,12 +101,6 @@ impl UnionFind {
         }
         true
     }
-
-    // Get size of circuit containing x
-    fn get_size(&mut self, x: usize) -> usize {
-        let root = self.find(x);
-        self.size[root]
-    }
 }
 
 // Main algorithm
@@ -114,24 +108,13 @@ fn solve(points: &[Point], max_connections: usize) -> Vec<usize> {
     let edges = compute_all_edges(points);
     let mut uf = UnionFind::new(points.len());
 
-    let mut connections_made = 0; // Will stop at 1000
-
     for edge in edges.iter().take(max_connections) {
         uf.union(edge.i, edge.j);
     }
-    // // Process edges in order of distance
-    // for edge in edges {
-    //     // Union return true if they were in different circuits
-    //     if uf.union(edge.i, edge.j) {
-    //         connections_made += 1;
-    //         if connections_made >= max_connections {
-    //             break;
-    //         }
-    //     }
-    // }
 
-    println!("Parents: {:?}", &uf.parent[..20.min(uf.parent.len())]);
-    println!("Sizes: {:?}", &uf.size[..20.min(uf.size.len())]);
+    // Debug
+    // println!("Parents: {:?}", &uf.parent[..20.min(uf.parent.len())]);
+    // println!("Sizes: {:?}", &uf.size[..20.min(uf.size.len())]);
 
     // Collect circuit sizes (only count each root once)
     let mut sizes: Vec<usize> = (0..points.len())
@@ -144,6 +127,29 @@ fn solve(points: &[Point], max_connections: usize) -> Vec<usize> {
     // Sort descending
     sizes.sort_by(|a, b| b.cmp(a));
     sizes
+}
+
+fn solve_part2(points: &[Point]) -> i64 {
+    let edges = compute_all_edges(points);
+    let mut uf = UnionFind::new(points.len());
+
+    let mut circuits_remaining = points.len();
+
+    let mut last_edge: Option<&Edge> = None;
+
+    for edge in &edges {
+        if uf.union(edge.i, edge.j) {
+            circuits_remaining -= 1;
+            last_edge = Some(edge);
+
+            if circuits_remaining == 1 {
+                break; // Everything is connected
+            }
+        }
+    }
+
+    let edge = last_edge.expect("Should have found a connecting edge");
+    points[edge.i].x * points[edge.j].x
 }
 
 fn main() {
@@ -163,4 +169,8 @@ fn main() {
     // Part 1: product of largest three
     let part1: usize = circuit_sizes.iter().take(3).product();
     println!("Part 1: {}", part1);
+
+    // Part 2
+    let part2 = solve_part2(&points);
+    println!("Part 2: {}", part2);
 }
