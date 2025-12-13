@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::read_to_string;
 
 // Helper functions
@@ -119,72 +119,113 @@ fn solve_device(device: &Device) -> usize {
 }
 
 // Part 2, joltage counters
-fn solve_part2(device: &Device) -> usize {
-    let targets = device.joltage_targets.as_ref().unwrap();
+// Needed insight from this brilliant reddit post:
+// https://www.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_2_bifurcate_your_way_to_victory/
 
-    // If all targets are 0, no presses needed
+// Helper function
+fn find_parity_patterns(buttons: &[Vec<usize>], target_parity: &[bool]) -> Vec<u32> {
+    let n_buttons = buttons.len();
+    let n_counters = target_parity.len();
+    let mut valid_patterns = Vec::new();
+
+    // Try all 2^n button combinations
+    for mask in 0..(1 << n_buttons) {
+        let mut state = vec![false; n_counters];
+
+        for (btn_idx, button) in buttons.iter().enumerate() {
+            if (mask & (1 << btn_idx)) != 0 {
+                // Press this button
+                for &pos in button {
+                    state[pos] = !state[pos];
+                }
+            }
+        }
+
+        if state == target_parity {
+            valid_patterns.push(mask);
+        }
+    }
+    valid_patterns
+}
+
+// Recursive approach
+fn solve_p2_recurse(
+    buttons: &[Vec<usize>],
+    targets: &[usize],
+    cache: &mut HashMap<Vec<usize>, usize>,
+) -> usize {
+    // Base Case: all zeros
     if targets.iter().all(|&t| t == 0) {
         return 0;
     }
 
-    // Use iterative deepening: try limits 10..200
-    for limit in (10..=200).step_by(10) {
-        let result = solve_greedy(device, targets, &vec![0; targets.len()], 0, limit);
-        if result != usize::MAX {
-            return result;
-        }
-    }
-    usize::MAX
-}
-
-// Greedy algo
-fn solve_greedy(
-    device: &Device,
-    targets: &[usize],
-    current: &[usize],
-    presses: usize,
-    max_presses: usize,
-) -> usize {
-    // Check if reached target
-    if current == targets {
-        return presses;
+    // Check cache
+    if let Some(&result) = cache.get(&targets.to_vec()) {
+        return result;
     }
 
-    // Check if exceeded limit
-    if presses > max_presses {
+    // Calc target parity (odd = true, even = false)
+    let target_parity: Vec<bool> = targets.iter().map(|&t| t % 2 == 1).collect();
+
+    // Find all button patterns that achieve this parity
+    let patterns = find_parity_patterns(buttons, &target_parity);
+
+    if patterns.is_empty() {
+        // IMPOSSIBLE
+        cache.insert(targets.to_vec(), usize::MAX);
         return usize::MAX;
     }
 
-    // Find best button to presses
-    // Heuristc: choose button that makes most progress without exceeding
-    let mut best_result = usize::MAX;
+    let mut min_presses = usize::MAX;
 
-    for button in &device.buttons {
-        let mut next = current.to_vec();
+    for mask in patterns {
+        let mut remaining = targets.to_vec();
+        let mut presses_used = 0;
         let mut valid = true;
-        let mut makes_progress = false;
 
-        for &pos in button {
-            next[pos] += 1;
-            if next[pos] > targets[pos] {
-                valid = false;
-                break;
-            }
-            if current[pos] < targets[pos] {
-                makes_progress = true;
+        // Apply buttons indicated by mask (press once each)
+        for (btn_idx, button) in buttons.iter().enumerate() {
+            if (mask & (1 << btn_idx)) != 0 {
+                presses_used += 1;
+                for &pos in button {
+                    if remaining[pos] == 0 {
+                        valid = false;
+                        break;
+                    }
+                    remaining[pos] -= 1;
+                }
+                if !valid {
+                    break;
+                }
             }
         }
-        if valid && makes_progress {
-            let result = solve_greedy(device, targets, &next, presses + 1, max_presses);
-            best_result = best_result.min(result);
 
-            // Early exit if found solution
-            if best_result != usize::MAX {
-                return best_result;
-            }
+        if !valid {
+            continue;
+        }
+
+        // Check if all remaining values are even
+        if !remaining.iter().all(|&v| v % 2 == 0) {
+            continue;
+        }
+
+        // Divide by 2 and recurse
+        let halved: Vec<usize> = remaining.iter().map(|&v| v / 2).collect();
+        let sub_result = solve_p2_recurse(buttons, &halved, cache);
+
+        if sub_result != usize::MAX {
+            min_presses = min_presses.min(presses_used + 2 * sub_result);
         }
     }
-    best_result
+
+    cache.insert(targets.to_vec(), min_presses);
+    min_presses
+}
+
+fn solve_p2(device: &Device) -> usize {
+    let targets = device.joltage_targets.as_ref().unwrap();
+    let mut cache = HashMap::new();
+    solve_p2_recurse(&device.buttons, &targets, &mut cache)
 }
 
 fn main() {
@@ -212,7 +253,7 @@ fn main() {
 
         // Part 2: Joltage counters
         if device.joltage_targets.is_some() {
-            let min_presses_p2 = solve_part2(&device);
+            let min_presses_p2 = solve_p2(&device);
             if min_presses_p2 != usize::MAX {
                 println!("Device {} (Part 2): {} presses", i + 1, min_presses_p2);
                 total_p2 += min_presses_p2;
