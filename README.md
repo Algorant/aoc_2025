@@ -24,4 +24,5 @@ I used Claude Code as a read-only companion for help with concepts I'm rusty wit
 - [Day 11](src/bin/day_11/main.rs)
 - [Day 12](src/bin/day_12/main.rs)
 
-![img]("2025-12-14-133446_hyprshot.png")
+![img]("./images/aoc_all_stars_earned.png")
+![img]("./images/tokei_loc.png")
